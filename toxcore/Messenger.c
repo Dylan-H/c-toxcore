@@ -3066,12 +3066,12 @@ non_null()
 static void m_register_default_plugins(Messenger *m)
 {
     m_register_state_plugin(m, STATE_TYPE_NOSPAMKEYS, nospam_keys_size, load_nospam_keys, save_nospam_keys);
-    m_register_state_plugin(m, STATE_TYPE_DHT, m_dht_size, m_dht_load, save_dht);
-    m_register_state_plugin(m, STATE_TYPE_FRIENDS, saved_friendslist_size, friends_list_load, friends_list_save);
+    //m_register_state_plugin(m, STATE_TYPE_DHT, m_dht_size, m_dht_load, save_dht);
+    //m_register_state_plugin(m, STATE_TYPE_FRIENDS, saved_friendslist_size, friends_list_load, friends_list_save);
     m_register_state_plugin(m, STATE_TYPE_NAME, name_size, load_name, save_name);
-    m_register_state_plugin(m, STATE_TYPE_STATUSMESSAGE, status_message_size, load_status_message,
-                            save_status_message);
-    m_register_state_plugin(m, STATE_TYPE_STATUS, status_size, load_status, save_status);
+    //m_register_state_plugin(m, STATE_TYPE_STATUSMESSAGE, status_message_size, load_status_message,
+    //                        save_status_message);
+    //m_register_state_plugin(m, STATE_TYPE_STATUS, status_size, load_status, save_status);
     m_register_state_plugin(m, STATE_TYPE_TCP_RELAY, tcp_relay_size, load_tcp_relays, save_tcp_relays);
     m_register_state_plugin(m, STATE_TYPE_PATH_NODE, path_node_size, load_path_nodes, save_path_nodes);
 }

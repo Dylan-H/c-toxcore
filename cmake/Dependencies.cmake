@@ -39,11 +39,10 @@ if(MSVC)
     find_library(LIBSODIUM_LIBRARIES
       NAMES sodium libsodium
       PATHS
-        "third_party/libsodium/Win32/Release/v140/dynamic"
-        "third_party/libsodium/x64/Release/v140/dynamic"
+        "E:/toxdesk/third_party/lib/x64"
     )
     if(LIBSODIUM_LIBRARIES)
-      include_directories("third_party/libsodium/include")
+      include_directories("E:/toxdesk/third_party/include")
       set(LIBSODIUM_FOUND TRUE)
       message("libsodium: ${LIBSODIUM_LIBRARIES}")
     else()
@@ -51,26 +50,55 @@ if(MSVC)
     endif()
   endif()
 
+  #OPUS
+  #------------
+  if(NOT OPUS_FOUND)
+    find_library(OPUS_LIBRARIES
+      NAMES opus libopus
+      PATHS
+        "E:/toxdesk/third_party/lib/x64"
+    )
+    if(OPUS_LIBRARIES)
+      include_directories("E:/toxdesk/third_party/opus/include")
+      set(OPUS_FOUND TRUE)
+      message("opus: ${OPUS_LIBRARIES}")
+    else()
+      message(FATAL_ERROR "OPUS libraries not found")
+    endif()
+  endif()
+
+  #VPX
+  #------------
+  if(NOT VPX_FOUND)
+    find_library(VPX_LIBRARIES
+      NAMES vpxmd libvpx
+      PATHS
+      "E:/toxdesk/third_party/lib/x64"
+    )
+    if(VPX_LIBRARIES)
+      include_directories("E:/toxdesk/third_party/libvpx")
+      set(VPX_FOUND TRUE)
+      message("vpx: ${VPX_LIBRARIES}")
+    else()
+      message(FATAL_ERROR "VPX libraries not found")
+    endif()
+  endif()
   # pthreads
   # --------
-  if(CMAKE_USE_WIN32_THREADS_INIT)
-    find_library(CMAKE_THREAD_LIBS_INIT
-      NAMES pthreadVC2
-      PATHS
-        "third_party/pthreads-win32/Pre-built.2/lib/x86"
-        "third_party/pthreads-win32/Pre-built.2/lib/x64"
+  if(NOT PTHREAD_FOUND)
+    find_library(PTHREAD_LIBRARIES
+    NAMES pthreadVC3 libpthreadVC3
+    PATHS
+    "D:/Work/vcpkg/installed/x64-windows/lib"
+    "D:/Work/vcpkg/installed/x64-windows/lib"
     )
-    if(CMAKE_THREAD_LIBS_INIT)
-      include_directories("third_party/pthreads-win32/Pre-built.2/include")
-      add_definitions(-DHAVE_STRUCT_TIMESPEC)
-      message("libpthreads: ${CMAKE_THREAD_LIBS_INIT}")
+    if(PTHREAD_LIBRARIES)
+      include_directories("D:/Work/vcpkg/installed/x64-windows/include")
+      set(PTHREAD_FOUND TRUE)
+      link_libraries(${PTHREAD_LIBRARIES})
+      message("pthread: ${PTHREAD_LIBRARIES}")
     else()
-      find_package(pthreads4w)
-      if(NOT pthreads4w_FOUND)
-        message(FATAL_ERROR "libpthreads libraries not found")
-      endif()
-      include_directories(${pthreads4w_INCLUDE_DIR})
-      link_libraries(${pthreads4w_LIBRARIES})
+      message(FATAL_ERROR "pthread libraries not found")
     endif()
   endif()
 endif()

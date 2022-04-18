@@ -17,6 +17,9 @@
 #include "../toxcore/mono_time.h"
 #include "../toxcore/network.h"
 
+
+#define CONFIG_LIBVPX_VP9_ENCODER 1
+
 /**
  * Soft deadline the decoder should attempt to meet, in "us" (microseconds).
  * Set to zero for unlimited.
@@ -53,16 +56,24 @@
  *
  * Target bandwidth to use for this stream, in kilobits per second.
  */
-#define VIDEO_BITRATE_INITIAL_VALUE 5000
+#define VIDEO_BITRATE_INITIAL_VALUE 500
 #define VIDEO_DECODE_BUFFER_SIZE 5 // this buffer has normally max. 1 entry
 
 static vpx_codec_iface_t *video_codec_decoder_interface(void)
 {
+#if CONFIG_LIBVPX_VP9_ENCODER
+    return vpx_codec_vp9_dx();
+#elif
     return vpx_codec_vp8_dx();
+#endif
 }
 static vpx_codec_iface_t *video_codec_encoder_interface(void)
 {
+#if CONFIG_LIBVPX_VP9_ENCODER
+    return vpx_codec_vp9_cx();
+#elif
     return vpx_codec_vp8_cx();
+#endif
 }
 
 #define VIDEO_CODEC_DECODER_MAX_WIDTH  800 // its a dummy value, because the struct needs a value there
@@ -73,6 +84,55 @@ static vpx_codec_iface_t *video_codec_encoder_interface(void)
 #define VPX_MAX_ENCODER_THREADS 4
 #define VPX_MAX_DECODER_THREADS 4
 #define VIDEO_VP8_DECODER_POST_PROCESSING_ENABLED 0
+
+
+/** String mappings for enum vp8e_enc_control_id */
+static const char* const ctlidstr[] = {
+    [VP8E_SET_CPUUSED] = "VP8E_SET_CPUUSED",
+    [VP8E_SET_ENABLEAUTOALTREF] = "VP8E_SET_ENABLEAUTOALTREF",
+    [VP8E_SET_NOISE_SENSITIVITY] = "VP8E_SET_NOISE_SENSITIVITY",
+    [VP8E_SET_STATIC_THRESHOLD] = "VP8E_SET_STATIC_THRESHOLD",
+    [VP8E_SET_TOKEN_PARTITIONS] = "VP8E_SET_TOKEN_PARTITIONS",
+    [VP8E_SET_ARNR_MAXFRAMES] = "VP8E_SET_ARNR_MAXFRAMES",
+    [VP8E_SET_ARNR_STRENGTH] = "VP8E_SET_ARNR_STRENGTH",
+    [VP8E_SET_ARNR_TYPE] = "VP8E_SET_ARNR_TYPE",
+    [VP8E_SET_TUNING] = "VP8E_SET_TUNING",
+    [VP8E_SET_CQ_LEVEL] = "VP8E_SET_CQ_LEVEL",
+    [VP8E_SET_MAX_INTRA_BITRATE_PCT] = "VP8E_SET_MAX_INTRA_BITRATE_PCT",
+    [VP8E_SET_SHARPNESS] = "VP8E_SET_SHARPNESS",
+    [VP8E_SET_TEMPORAL_LAYER_ID] = "VP8E_SET_TEMPORAL_LAYER_ID",
+#if CONFIG_LIBVPX_VP9_ENCODER
+    [VP9E_SET_LOSSLESS] = "VP9E_SET_LOSSLESS",
+    [VP9E_SET_TILE_COLUMNS] = "VP9E_SET_TILE_COLUMNS",
+    [VP9E_SET_TILE_ROWS] = "VP9E_SET_TILE_ROWS",
+    [VP9E_SET_FRAME_PARALLEL_DECODING] = "VP9E_SET_FRAME_PARALLEL_DECODING",
+    [VP9E_SET_AQ_MODE] = "VP9E_SET_AQ_MODE",
+    [VP9E_SET_COLOR_SPACE] = "VP9E_SET_COLOR_SPACE",
+    [VP9E_SET_SVC_LAYER_ID] = "VP9E_SET_SVC_LAYER_ID",
+#if VPX_ENCODER_ABI_VERSION >= 12
+    [VP9E_SET_SVC_PARAMETERS] = "VP9E_SET_SVC_PARAMETERS",
+    [VP9E_SET_SVC_REF_FRAME_CONFIG] = "VP9E_SET_SVC_REF_FRAME_CONFIG",
+#endif
+    [VP9E_SET_SVC] = "VP9E_SET_SVC",
+#if VPX_ENCODER_ABI_VERSION >= 11
+    [VP9E_SET_COLOR_RANGE] = "VP9E_SET_COLOR_RANGE",
+#endif
+#if VPX_ENCODER_ABI_VERSION >= 12
+    [VP9E_SET_TARGET_LEVEL] = "VP9E_SET_TARGET_LEVEL",
+    [VP9E_GET_LEVEL] = "VP9E_GET_LEVEL",
+#endif
+#ifdef VPX_CTRL_VP9E_SET_ROW_MT
+    [VP9E_SET_ROW_MT] = "VP9E_SET_ROW_MT",
+#endif
+#ifdef VPX_CTRL_VP9E_SET_TUNE_CONTENT
+    [VP9E_SET_TUNE_CONTENT] = "VP9E_SET_TUNE_CONTENT",
+#endif
+#ifdef VPX_CTRL_VP9E_SET_TPL
+    [VP9E_SET_TPL] = "VP9E_SET_TPL",
+#endif
+#endif
+};
+
 
 static void vc_init_encoder_cfg(const Logger *log, vpx_codec_enc_cfg_t *cfg, int16_t kf_max_dist)
 {
@@ -175,10 +235,7 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
      * VPX_CODEC_USE_ERROR_CONCEALMENT
      *    Conceal errors in decoded frames
      */
-    vpx_codec_dec_cfg_t  dec_cfg;
-    dec_cfg.threads = VPX_MAX_DECODER_THREADS; // Maximum number of threads to use
-    dec_cfg.w = VIDEO_CODEC_DECODER_MAX_WIDTH;
-    dec_cfg.h = VIDEO_CODEC_DECODER_MAX_HEIGHT;
+    vpx_codec_dec_cfg_t  dec_cfg = { VPX_MAX_DECODER_THREADS ,0,0};
 
     LOGGER_DEBUG(log, "Using VP8 codec for decoder (0)");
     rc = vpx_codec_dec_init(vc->decoder, video_codec_decoder_interface(), &dec_cfg,
@@ -227,13 +284,12 @@ VCSession *vc_new(Mono_Time *mono_time, const Logger *log, ToxAV *av, uint32_t f
         goto BASE_CLEANUP_1;
     }
 
-    rc = vpx_codec_control(vc->encoder, VP8E_SET_CPUUSED, cpu_used_value);
+   rc = vc_encoder_control(log, vc->encoder);
 
-    if (rc != VPX_CODEC_OK) {
-        LOGGER_ERROR(log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
-        vpx_codec_destroy(vc->encoder);
-        goto BASE_CLEANUP_1;
-    }
+   if (rc != VPX_CODEC_OK) {
+       LOGGER_ERROR(log, "Failed to initialize encoder: %s", vpx_codec_err_to_string(rc));
+       goto BASE_CLEANUP_1;
+   }
 
     /*
      * VPX_CTRL_USE_TYPE(VP8E_SET_NOISE_SENSITIVITY,  unsigned int)
@@ -323,7 +379,15 @@ void vc_iterate(VCSession *vc)
     free(p);
 
     if (rc != VPX_CODEC_OK) {
-        LOGGER_ERROR(vc->log, "Error decoding video: %d %s", (int)rc, vpx_codec_err_to_string(rc));
+        LOGGER_ERROR(vc->log, "Error decoding video: %d %s", (int)rc, vpx_codec_error_detail(vc->decoder));
+        vpx_codec_destroy(vc->decoder);
+        vpx_codec_dec_cfg_t  dec_cfg = { VPX_MAX_DECODER_THREADS ,0,0};
+
+        vpx_codec_err_t rc1 = vpx_codec_dec_init(vc->decoder, video_codec_decoder_interface(), &dec_cfg,
+            VPX_CODEC_USE_FRAME_THREADING);
+        if (rc1 != VPX_CODEC_OK) {
+            LOGGER_ERROR(vc->log, "reinit decode video: %d %s", (int)rc, vpx_codec_err_to_string(rc1));
+        }
         return;
     }
 
@@ -386,6 +450,54 @@ int vc_queue_message(Mono_Time *mono_time, void *vcp, struct RTPMessage *msg)
     return 0;
 }
 
+int vc_encoder_control(const Logger* log,vpx_codec_ctx_t* ec)
+{
+    char buf[80] = { 0 };
+    int res;
+    res = vpx_codec_control(ec, VP8E_SET_CPUUSED, VP8E_SET_CPUUSED_VALUE);
+    if (res != VPX_CODEC_OK) {
+        snprintf(buf, sizeof(buf), "Failed to set %s codec control",
+            ctlidstr[VP8E_SET_CPUUSED]);
+        LOGGER_DEBUG(log, "  %s\n", buf);
+        return res;
+    }
+
+#if CONFIG_LIBVPX_VP9_ENCODER
+    res = vpx_codec_control(ec, VP9E_SET_TILE_COLUMNS, 3);
+    if (res != VPX_CODEC_OK) {
+        snprintf(buf, sizeof(buf), "Failed to set %s codec control",
+            ctlidstr[VP9E_SET_TILE_COLUMNS]);
+        LOGGER_DEBUG(log, "  %s\n", buf);
+        return res;
+    }
+
+    res = vpx_codec_control(ec, VP9E_SET_TILE_ROWS, 2);
+    if (res != VPX_CODEC_OK) {
+        snprintf(buf, sizeof(buf), "Failed to set %s codec control",
+            ctlidstr[VP9E_SET_TILE_ROWS]);
+        LOGGER_DEBUG(log, "  %s\n", buf);
+        return res;
+    }
+
+    res = vpx_codec_control(ec, VP9E_SET_AQ_MODE, 2);
+    if (res != VPX_CODEC_OK) {
+        snprintf(buf, sizeof(buf), "Failed to set %s codec control",
+            ctlidstr[VP9E_SET_AQ_MODE]);
+        LOGGER_DEBUG(log, "  %s\n", buf);
+        return res;
+    }
+
+    res = vpx_codec_control(ec, VP9E_SET_TUNE_CONTENT, VP9E_CONTENT_SCREEN);
+    if (res != VPX_CODEC_OK) {
+        snprintf(buf, sizeof(buf), "Failed to set %s codec control",
+            ctlidstr[VP9E_SET_TUNE_CONTENT]);
+        LOGGER_DEBUG(log, "  %s\n", buf);
+        return res;
+    }
+    return VPX_CODEC_OK;
+#endif // CONFIG_LIBVPX_VP9_ENCODER
+}
+
 int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uint16_t height, int16_t kf_max_dist)
 {
     if (vc == nullptr) {
@@ -400,7 +512,7 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
 
     if (cfg2.g_w == width && cfg2.g_h == height && kf_max_dist == -1) {
         /* Only bit rate changed */
-        LOGGER_INFO(vc->log, "bitrate change from: %u to: %u", (uint32_t)cfg2.rc_target_bitrate, (uint32_t)bit_rate);
+        LOGGER_DEBUG(vc->log, "bitrate change from: %u to: %u", (uint32_t)cfg2.rc_target_bitrate, (uint32_t)bit_rate);
         cfg2.rc_target_bitrate = bit_rate;
         const vpx_codec_err_t rc = vpx_codec_enc_config_set(vc->encoder, &cfg2);
 
@@ -428,12 +540,9 @@ int vc_reconfigure_encoder(VCSession *vc, uint32_t bit_rate, uint16_t width, uin
             return -1;
         }
 
-        const int cpu_used_value = VP8E_SET_CPUUSED_VALUE;
-
-        rc = vpx_codec_control(&new_c, VP8E_SET_CPUUSED, cpu_used_value);
+        rc = vc_encoder_control(vc->log, &new_c);
 
         if (rc != VPX_CODEC_OK) {
-            LOGGER_ERROR(vc->log, "Failed to set encoder control setting: %s", vpx_codec_err_to_string(rc));
             vpx_codec_destroy(&new_c);
             return -1;
         }
