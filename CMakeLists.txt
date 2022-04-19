@@ -123,7 +123,7 @@ if (AUTOTEST)
 endif()
 
 option(BUILD_TOXAV "Whether to build the tox AV library" ON)
-option(MUST_BUILD_TOXAV "Fail the build if toxav cannot be built" OFF)
+option(MUST_BUILD_TOXAV "Fail the build if toxav cannot be built" ON)
 
 option(DHT_BOOTSTRAP "Enable building of DHT_bootstrap" ON)
 option(BOOTSTRAP_DAEMON "Enable building of tox-bootstrapd" ON)
@@ -149,7 +149,7 @@ endif()
 
 
 if(MSVC)
-  option(MSVC_STATIC_SODIUM "Whether to link libsodium statically for MSVC" OFF)
+  option(MSVC_STATIC_SODIUM "Whether to link libsodium statically for MSVC" ON)
   if(MSVC_STATIC_SODIUM)
     add_definitions(-DSODIUM_STATIC=1 -DSODIUM_EXPORT)
   endif()
@@ -355,11 +355,11 @@ set(toxcore_API_HEADERS ${toxcore_API_HEADERS}
 # These need to come after other dependencies, since e.g. libvpx may depend on
 # pthread, but doesn't list it in VPX_LIBRARIES. We're adding it here, after
 # any potential libvpx linking.
-message("CMAKE_THREAD_LIBS_INIT: ${CMAKE_THREAD_LIBS_INIT}")
-if(CMAKE_THREAD_LIBS_INIT)
-  set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${CMAKE_THREAD_LIBS_INIT})
-  set(toxcore_PKGCONFIG_LIBS ${toxcore_PKGCONFIG_LIBS} ${CMAKE_THREAD_LIBS_INIT})
-endif()
+# message("CMAKE_THREAD_LIBS_INIT: ${CMAKE_THREAD_LIBS_INIT}")
+# if(CMAKE_THREAD_LIBS_INIT)
+#   set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${CMAKE_THREAD_LIBS_INIT})
+#   set(toxcore_PKGCONFIG_LIBS ${toxcore_PKGCONFIG_LIBS} ${CMAKE_THREAD_LIBS_INIT})
+# endif()
 
 
 if(NSL_LIBRARIES)
@@ -390,7 +390,7 @@ endif()
 
 # Create combined library from all the sources.
 add_module(toxcore ${toxcore_SOURCES})
-
+message("............"${toxcore_LINK_MODULES})
 # Link it to all dependencies.
 target_link_modules(toxcore ${toxcore_LINK_MODULES})
 
