@@ -13,11 +13,11 @@ find_library(RT_LIBRARIES           rt           )
 find_library(SOCKET_LIBRARIES       socket       )
 
 # For toxcore.
-pkg_use_module(LIBSODIUM            libsodium    )
+#pkg_use_module(LIBSODIUM            libsodium    )
 
 # For toxav.
-pkg_use_module(OPUS                 "opus;Opus"  )
-pkg_use_module(VPX                  "vpx;libvpx" )
+#pkg_use_module(OPUS                 "opus;Opus"  )
+#pkg_use_module(VPX                  "vpx;libvpx" )
 
 # For tox-bootstrapd.
 pkg_use_module(LIBCONFIG            libconfig    )
@@ -32,17 +32,23 @@ pkg_use_module(LIBCONFIG            libconfig    )
 #
 ###############################################################################
 
-if(MSVC)
+if(WIN32)
+    set(libpath ${CMAKE_CURRENT_SOURCE_DIR}/../lib/x64)
+elseif(ANDROID)
+    set(libpath ${CMAKE_CURRENT_SOURCE_DIR}/../lib/${CMAKE_ANDROID_ARCH_ABI})
+else()
+  set(libpath ${CMAKE_CURRENT_SOURCE_DIR}/../lib/linux64)
+endif()
+
   # libsodium
   # ---------
   if(NOT LIBSODIUM_FOUND)
     find_library(LIBSODIUM_LIBRARIES
       NAMES sodium libsodium
-      PATHS
-        "E:/toxdesk/third_party/lib/x64"
+      PATHS ${libpath} NO_DEFAULT_PATH
     )
     if(LIBSODIUM_LIBRARIES)
-      include_directories("E:/toxdesk/third_party/include")
+      include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../include")
       set(LIBSODIUM_FOUND TRUE)
       message("libsodium: ${LIBSODIUM_LIBRARIES}")
     else()
@@ -55,11 +61,10 @@ if(MSVC)
   if(NOT OPUS_FOUND)
     find_library(OPUS_LIBRARIES
       NAMES opus libopus
-      PATHS
-        "E:/toxdesk/third_party/lib/x64"
+      PATHS ${libpath} NO_DEFAULT_PATH
     )
     if(OPUS_LIBRARIES)
-      include_directories("E:/toxdesk/third_party/opus/include")
+      include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../opus/include")
       set(OPUS_FOUND TRUE)
       message("opus: ${OPUS_LIBRARIES}")
     else()
@@ -71,18 +76,18 @@ if(MSVC)
   #------------
   if(NOT VPX_FOUND)
     find_library(VPX_LIBRARIES
-      NAMES vpxmd libvpx
-      PATHS
-      "E:/toxdesk/third_party/lib/x64"
+      NAMES vpxmd libvpx vpx
+      PATHS ${libpath} NO_DEFAULT_PATH
     )
     if(VPX_LIBRARIES)
-      include_directories("E:/toxdesk/third_party/libvpx")
+      include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../libvpx")
       set(VPX_FOUND TRUE)
       message("vpx: ${VPX_LIBRARIES}")
     else()
       message(FATAL_ERROR "VPX libraries not found")
     endif()
   endif()
+if(MSVC)
   # pthreads
   # --------
   if(NOT PTHREAD_FOUND)
